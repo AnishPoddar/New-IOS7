@@ -10638,138 +10638,165 @@ scheduler(void)
 80103a33:	57                   	push   %edi
 80103a34:	56                   	push   %esi
 80103a35:	53                   	push   %ebx
-80103a36:	83 ec 0c             	sub    $0xc,%esp
+
+    // Loop over process table looking for process to run.
+    acquire(&ptable.lock);
+    for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
+      if(p->pid != 1 && p->pid != 2)
+	p->priority = 11;
+80103a36:	bf 0b 00 00 00       	mov    $0xb,%edi
+//  - swtch to start running that process
+//  - eventually that process transfers control
+//      via swtch back to the scheduler.
+void
+scheduler(void)
+{
+80103a3b:	83 ec 1c             	sub    $0x1c,%esp
   struct proc *p;
   struct cpu *c = mycpu();
-80103a39:	e8 92 fc ff ff       	call   801036d0 <mycpu>
-80103a3e:	8d 78 04             	lea    0x4(%eax),%edi
-80103a41:	89 c6                	mov    %eax,%esi
+80103a3e:	e8 8d fc ff ff       	call   801036d0 <mycpu>
   c->proc = 0;
 80103a43:	c7 80 ac 00 00 00 00 	movl   $0x0,0xac(%eax)
 80103a4a:	00 00 00 
-80103a4d:	8d 76 00             	lea    0x0(%esi),%esi
+//      via swtch back to the scheduler.
+void
+scheduler(void)
+{
+  struct proc *p;
+  struct cpu *c = mycpu();
+80103a4d:	89 c6                	mov    %eax,%esi
+80103a4f:	8d 40 04             	lea    0x4(%eax),%eax
+80103a52:	89 45 e4             	mov    %eax,-0x1c(%ebp)
+80103a55:	8d 76 00             	lea    0x0(%esi),%esi
 }
 
 static inline void
 sti(void)
 {
   asm volatile("sti");
-80103a50:	fb                   	sti    
+80103a58:	fb                   	sti    
   for(;;){
     // Enable interrupts on this processor.
     sti();
 
     // Loop over process table looking for process to run.
     acquire(&ptable.lock);
-80103a51:	83 ec 0c             	sub    $0xc,%esp
+80103a59:	83 ec 0c             	sub    $0xc,%esp
     for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
-80103a54:	bb 54 2d 11 80       	mov    $0x80112d54,%ebx
+80103a5c:	bb 54 2d 11 80       	mov    $0x80112d54,%ebx
   for(;;){
     // Enable interrupts on this processor.
     sti();
 
     // Loop over process table looking for process to run.
     acquire(&ptable.lock);
-80103a59:	68 20 2d 11 80       	push   $0x80112d20
-80103a5e:	e8 1d 09 00 00       	call   80104380 <acquire>
-80103a63:	83 c4 10             	add    $0x10,%esp
-80103a66:	eb 13                	jmp    80103a7b <scheduler+0x4b>
-80103a68:	90                   	nop
-80103a69:	8d b4 26 00 00 00 00 	lea    0x0(%esi,%eiz,1),%esi
+80103a61:	68 20 2d 11 80       	push   $0x80112d20
+80103a66:	e8 15 09 00 00       	call   80104380 <acquire>
+80103a6b:	83 c4 10             	add    $0x10,%esp
+80103a6e:	eb 0b                	jmp    80103a7b <scheduler+0x4b>
     for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
 80103a70:	83 eb 80             	sub    $0xffffff80,%ebx
 80103a73:	81 fb 54 4d 11 80    	cmp    $0x80114d54,%ebx
 80103a79:	74 55                	je     80103ad0 <scheduler+0xa0>
-      p->priority = 11;
+      if(p->pid != 1 && p->pid != 2)
+80103a7b:	8b 43 10             	mov    0x10(%ebx),%eax
+80103a7e:	8d 48 ff             	lea    -0x1(%eax),%ecx
+	p->priority = 11;
+80103a81:	83 f9 02             	cmp    $0x2,%ecx
+80103a84:	0f 43 c7             	cmovae %edi,%eax
+      else
+	p->priority = p->pid;
+
       if(p->state != RUNNABLE)
-80103a7b:	83 7b 0c 03          	cmpl   $0x3,0xc(%ebx)
-    sti();
+80103a87:	83 7b 0c 03          	cmpl   $0x3,0xc(%ebx)
 
     // Loop over process table looking for process to run.
     acquire(&ptable.lock);
     for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
-      p->priority = 11;
-80103a7f:	c7 43 7c 0b 00 00 00 	movl   $0xb,0x7c(%ebx)
+      if(p->pid != 1 && p->pid != 2)
+	p->priority = 11;
+80103a8b:	89 43 7c             	mov    %eax,0x7c(%ebx)
+      else
+	p->priority = p->pid;
+
       if(p->state != RUNNABLE)
-80103a86:	75 e8                	jne    80103a70 <scheduler+0x40>
+80103a8e:	75 e0                	jne    80103a70 <scheduler+0x40>
 
       // Switch to chosen process.  It is the process's job
       // to release ptable.lock and then reacquire it
       // before jumping back to us.
       c->proc = p;
       switchuvm(p);
-80103a88:	83 ec 0c             	sub    $0xc,%esp
+80103a90:	83 ec 0c             	sub    $0xc,%esp
         continue;
 
       // Switch to chosen process.  It is the process's job
       // to release ptable.lock and then reacquire it
       // before jumping back to us.
       c->proc = p;
-80103a8b:	89 9e ac 00 00 00    	mov    %ebx,0xac(%esi)
+80103a93:	89 9e ac 00 00 00    	mov    %ebx,0xac(%esi)
       switchuvm(p);
-80103a91:	53                   	push   %ebx
+80103a99:	53                   	push   %ebx
     // Enable interrupts on this processor.
     sti();
 
     // Loop over process table looking for process to run.
     acquire(&ptable.lock);
     for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
-80103a92:	83 eb 80             	sub    $0xffffff80,%ebx
+80103a9a:	83 eb 80             	sub    $0xffffff80,%ebx
 
       // Switch to chosen process.  It is the process's job
       // to release ptable.lock and then reacquire it
       // before jumping back to us.
       c->proc = p;
       switchuvm(p);
-80103a95:	e8 f6 2d 00 00       	call   80106890 <switchuvm>
+80103a9d:	e8 ee 2d 00 00       	call   80106890 <switchuvm>
       p->state = RUNNING;
 
       swtch(&(c->scheduler), p->context);
-80103a9a:	58                   	pop    %eax
-80103a9b:	5a                   	pop    %edx
-80103a9c:	ff 73 9c             	pushl  -0x64(%ebx)
-80103a9f:	57                   	push   %edi
+80103aa2:	58                   	pop    %eax
+80103aa3:	5a                   	pop    %edx
+80103aa4:	ff 73 9c             	pushl  -0x64(%ebx)
+80103aa7:	ff 75 e4             	pushl  -0x1c(%ebp)
       // Switch to chosen process.  It is the process's job
       // to release ptable.lock and then reacquire it
       // before jumping back to us.
       c->proc = p;
       switchuvm(p);
       p->state = RUNNING;
-80103aa0:	c7 43 8c 04 00 00 00 	movl   $0x4,-0x74(%ebx)
+80103aaa:	c7 43 8c 04 00 00 00 	movl   $0x4,-0x74(%ebx)
 
       swtch(&(c->scheduler), p->context);
-80103aa7:	e8 2f 0c 00 00       	call   801046db <swtch>
+80103ab1:	e8 25 0c 00 00       	call   801046db <swtch>
       switchkvm();
-80103aac:	e8 bf 2d 00 00       	call   80106870 <switchkvm>
+80103ab6:	e8 b5 2d 00 00       	call   80106870 <switchkvm>
 
       // Process is done running for now.
       // It should have changed its p->state before coming back.
       c->proc = 0;
-80103ab1:	83 c4 10             	add    $0x10,%esp
+80103abb:	83 c4 10             	add    $0x10,%esp
     // Enable interrupts on this processor.
     sti();
 
     // Loop over process table looking for process to run.
     acquire(&ptable.lock);
     for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
-80103ab4:	81 fb 54 4d 11 80    	cmp    $0x80114d54,%ebx
+80103abe:	81 fb 54 4d 11 80    	cmp    $0x80114d54,%ebx
       swtch(&(c->scheduler), p->context);
       switchkvm();
 
       // Process is done running for now.
       // It should have changed its p->state before coming back.
       c->proc = 0;
-80103aba:	c7 86 ac 00 00 00 00 	movl   $0x0,0xac(%esi)
-80103ac1:	00 00 00 
+80103ac4:	c7 86 ac 00 00 00 00 	movl   $0x0,0xac(%esi)
+80103acb:	00 00 00 
     // Enable interrupts on this processor.
     sti();
 
     // Loop over process table looking for process to run.
     acquire(&ptable.lock);
     for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
-80103ac4:	75 b5                	jne    80103a7b <scheduler+0x4b>
-80103ac6:	8d 76 00             	lea    0x0(%esi),%esi
-80103ac9:	8d bc 27 00 00 00 00 	lea    0x0(%edi,%eiz,1),%edi
+80103ace:	75 ab                	jne    80103a7b <scheduler+0x4b>
 
       // Process is done running for now.
       // It should have changed its p->state before coming back.
@@ -10782,7 +10809,7 @@ sti(void)
 
   }
 80103add:	83 c4 10             	add    $0x10,%esp
-80103ae0:	e9 6b ff ff ff       	jmp    80103a50 <scheduler+0x20>
+80103ae0:	e9 73 ff ff ff       	jmp    80103a58 <scheduler+0x28>
 80103ae5:	8d 74 26 00          	lea    0x0(%esi,%eiz,1),%esi
 80103ae9:	8d bc 27 00 00 00 00 	lea    0x0(%edi,%eiz,1),%edi
 
@@ -12177,6 +12204,12 @@ pushcli(void)
 801042a1:	89 e5                	mov    %esp,%ebp
 801042a3:	53                   	push   %ebx
 801042a4:	83 ec 04             	sub    $0x4,%esp
+
+static inline uint
+readeflags(void)
+{
+  uint eflags;
+  asm volatile("pushfl; popl %0" : "=r" (eflags));
 801042a7:	9c                   	pushf  
 801042a8:	5b                   	pop    %ebx
 }
